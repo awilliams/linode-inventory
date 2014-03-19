@@ -14,13 +14,6 @@ const (
   API_URL = "https://api.linode.com/"
 )
 
-type ErrorJson struct {
-  Errors []struct {
-    Code    int    `json:"ERRORCODE"`
-    Message string `json:"ERRORMESSAGE"`
-  } `json:"ERRORARRAY,omitempty"`
-}
-
 type queryParams map[string]string
 
 type apiAction struct {
@@ -93,25 +86,39 @@ func (self apiRequest) GetJson(data interface{}) error {
   if err != nil {
     return err
   }
+  
+  // the linode API does not use HTTP status codes to indicate errors,
+  // rather it embeds in the JSON document the errors. When there is an error
+  // the foramt of the `DATA` element changes as well, which would cause the json decode to fail.
+  //
+  // Here we first parse the json to see if it contains errors, then re-parse with the provided
+  // json structure
+  if linodeErr := checkForLinodeError(bytes.NewReader(body)); linodeErr != nil {
+    return linodeErr
+  }
 
   decoder := json.NewDecoder(bytes.NewReader(body))
   err = decoder.Decode(data)
   if err != nil {
-    linodeErr := checkForLinodeError(bytes.NewReader(body))
-    if linodeErr != nil {
-      return linodeErr
-    }
     return err
   }
+  
   return nil
 }
 
+type errorJson struct {
+  Errors []struct {
+    Code    int    `json:"ERRORCODE"`
+    Message string `json:"ERRORMESSAGE"`
+  } `json:"ERRORARRAY,omitempty"`
+}
+
 func checkForLinodeError(body *bytes.Reader) error {
-  data := new(ErrorJson)
+  data := new(errorJson)
   decoder := json.NewDecoder(body)
   err := decoder.Decode(&data)
   if err != nil {
-    // this is not actually an error
+    // this is not actually an error, since there is not always an error present in the JSON
     return nil
   }
   if len(data.Errors) > 0 {

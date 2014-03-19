@@ -22,3 +22,7 @@ _testmain.go
 *.exe
 
 *.ini
+
+# Binaries
+bin/*
+release/*

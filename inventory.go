@@ -1,5 +1,7 @@
 package main
 
+// Provides output for use as an Ansible inventory plugin
+
 import (
   "encoding/json"
   "github.com/awilliams/linode-inventory/api"

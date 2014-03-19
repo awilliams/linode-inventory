@@ -2,8 +2,7 @@ package api
 
 import (
   "strconv"
-  //"fmt"
-  //"bytes"
+  "sort"
 )
 
 type Linode struct {
@@ -35,6 +34,23 @@ func (self Linode) PrivateIp() string {
     }
   }
   return ip
+}
+
+type sortedLinodeIps []LinodeIp
+
+func (self sortedLinodeIps) Len() int {
+  return len(self)
+}
+func (self sortedLinodeIps) Swap(i, j int) {
+  self[i], self[j] = self[j], self[i]
+}
+// Public first
+func (self sortedLinodeIps) Less(i, j int) bool {
+  return self[i].Public > self[j].Public
+}
+
+func (self Linode) SortIps() {
+  sort.Sort(sortedLinodeIps(self.Ips))
 }
 
 type Linodes map[int]*Linode
@@ -75,7 +91,6 @@ func LinodeList(apiKey string) (Linodes, error) {
 
   linodes := make(Linodes)
   for _, linode := range data.Linodes {
-    //linode.Ips = []LinodeIp{}
     l := linode
     linodes[linode.Id] = &l
   }
@@ -89,6 +104,8 @@ type LinodeIp struct {
   Public   int    `json:"ISPUBLIC"`
 }
 
+// first fetch the list of linodes, 
+// then use a batch request to list all the ips associated with those linodes
 func LinodeListWithIps(apiKey string) (Linodes, error) {
   linodes, err := LinodeList(apiKey)
   if err != nil {
@@ -116,7 +133,7 @@ func LinodeListWithIps(apiKey string) (Linodes, error) {
   for _, ipList := range data {
     for _, linodeIp := range ipList.LinodeIps {
       if linode, ok := linodes[linodeIp.LinodeId]; ok {
-        linode.Ips = append(linode.Ips, linodeIp)
+        linode.Ips = append(linode.Ips, linodeIp)        
       }
     }    
   }
