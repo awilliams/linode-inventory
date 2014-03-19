@@ -11,6 +11,10 @@ The `--host` form returns an empty hash.
 
 See [Developing Dynamic Inventory Sources](http://docs.ansible.com/developing_inventory.html) for more information.
 
+## Download
+
+**[Releases](https://github.com/awilliams/linode-inventory/releases)**
+
 ## Usage
 
 Download the appropriate package from releases.
