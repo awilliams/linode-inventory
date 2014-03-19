@@ -1,7 +1,7 @@
 linode-inventory
 ================
 
-**Ansible dynamin inventory plugin for use with Linode.**
+**Ansible dynamic inventory plugin for use with Linode.**
 
 The Ansible repository already contains an [Linode dynamic inventory plugin](https://github.com/ansible/ansible/tree/devel/plugins/inventory), which may be useful to you.
 
