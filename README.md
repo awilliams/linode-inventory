@@ -33,7 +33,7 @@ See [Developing Dynamic Inventory Sources](http://docs.ansible.com/developing_in
 
  * Create a `linode-inventory.ini` file with your Linode API key in the same directory as the executable. See the example ini file.
 
- * Test the output with:
+ * Test the output. **Note** only hosts in `Running` state will be displayed
  
     ./linode-inventory --list
 
