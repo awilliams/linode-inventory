@@ -34,5 +34,5 @@ See [Developing Dynamic Inventory Sources](http://docs.ansible.com/developing_in
  * Create a `linode-inventory.ini` file with your Linode API key in the same directory as the executable. See the inlcluded example ini file `linode-inventory.example.ini`.
 
  * Test the output. 
- 
-    ./linode-inventory --list
+ `./linode-inventory --list`
+
