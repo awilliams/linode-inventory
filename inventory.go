@@ -5,34 +5,51 @@ package main
 import (
 	"encoding/json"
 
-	"github.com/awilliams/linode-inventory/api"
+	"github.com/awilliams/linode"
 )
 
-type HostMeta map[string]string
+func newInventory(nodes map[int]*linodeWithIPs) *inventory {
+	meta := make(map[string]map[string]map[string]string)
+	hostvars := make(map[string]map[string]string, len(nodes))
+	meta["hostvars"] = hostvars
 
-type Inventory struct {
-	Meta  map[string]map[string]HostMeta `json:"_meta"`
-	Hosts []string                       `json:"hosts"`
+	inv := inventory{Meta: meta, Hosts: make([]string, len(nodes))}
+	i := 0
+	for _, n := range nodes {
+		inv.Hosts[i] = n.node.Label
+		i++
+		publicIP, privateIP := publicPrivateIP(n.ips)
+		hostvars[n.node.Label] = map[string]string{
+			"ansible_ssh_host":   publicIP,
+			"host_label":         n.node.Label,
+			"host_display_group": n.node.DisplayGroup,
+			"host_private_ip":    privateIP,
+			"host_public_ip":     publicIP,
+		}
+	}
+	return &inv
 }
 
-func (i Inventory) toJSON() ([]byte, error) {
+type inventory struct {
+	Meta  map[string]map[string]map[string]string `json:"_meta"`
+	Hosts []string                                `json:"hosts"`
+}
+
+func (i *inventory) toJSON() ([]byte, error) {
 	return json.MarshalIndent(i, " ", "  ")
 }
 
-func makeInventory(linodes []*api.Linode) Inventory {
-	meta := make(map[string]map[string]HostMeta)
-	hostvars := make(map[string]HostMeta)
-	meta["hostvars"] = hostvars
-
-	inventory := Inventory{Hosts: []string{}, Meta: meta}
-	for _, linode := range linodes {
-		inventory.Hosts = append(inventory.Hosts, linode.Label)
-		hostmeta := make(HostMeta)
-		hostmeta["ansible_ssh_host"] = linode.PublicIp()
-		hostmeta["host_label"] = linode.Label
-		hostmeta["host_display_group"] = linode.DisplayGroup
-		hostmeta["host_private_ip"] = linode.PrivateIp()
-		hostvars[linode.Label] = hostmeta
+func publicPrivateIP(ips []linode.LinodeIP) (string, string) {
+	var pub, prv string
+	for _, ip := range ips {
+		if ip.IsPublic() {
+			pub = ip.IP
+		} else {
+			prv = ip.IP
+		}
+		if pub != "" && prv != "" {
+			break
+		}
 	}
-	return inventory
+	return pub, prv
 }

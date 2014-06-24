@@ -17,7 +17,7 @@ This plugin differs from the 'official' one in the following ways:
  
  * No external dependencies.
  
- * Creates less variables per host, but adding them should be trival. Open a pull-request if you need one defined. 
+ * Creates less variables per host, but adding more would be trival. Open a pull-request if you need one defined. 
 
 See [Developing Dynamic Inventory Sources](http://docs.ansible.com/developing_inventory.html) for more information.
 
@@ -31,10 +31,8 @@ See [Developing Dynamic Inventory Sources](http://docs.ansible.com/developing_in
  
  * Place the executable inside your ansible directory, alongside other inventory files in a directory or wherever you like.
 
- * Create a `linode-inventory.ini` file with your Linode API key in the same directory as the executable. See the example ini file.
+ * Create a `linode-inventory.ini` file with your Linode API key in the same directory as the executable. See the inlcluded example ini file `linode-inventory.example.ini`.
 
- * Test the output. **Note** only hosts in `Running` state will be displayed
+ * Test the output. 
  
     ./linode-inventory --list
-
- * Profit

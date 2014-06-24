@@ -1,36 +1,96 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
+	"github.com/awilliams/linode"
+
 	"code.google.com/p/gcfg"
-	"github.com/awilliams/linode-inventory/api"
 )
 
-const ConfigPath = "linode-inventory.ini"
+const configName = "linode-inventory.ini"
 
-type Configuration struct {
+var args struct {
+	list    bool
+	host    bool
+	version bool
+}
+
+func init() {
+	flag.BoolVar(&args.list, "list", false, "Print Ansible formatted inventory")
+	flag.BoolVar(&args.host, "host", false, "no-op since all information is given via --list")
+	flag.BoolVar(&args.version, "v", false, "Print version")
+}
+
+var config *configuration
+var linodeClient *linode.Client
+
+const usage = "usage: %s [flag]\n"
+
+func main() {
+	flag.Parse()
+	var err error
+	config, err = getConfig()
+	if err != nil {
+		fatal(err)
+		return
+	}
+	linodeClient = linode.NewClient(config.APIKey)
+
+	if args.list {
+		inv := newInventory(linodes())
+		inventoryJSON, err := inv.toJSON()
+		if err != nil {
+			fatal(err)
+			return
+		}
+		os.Stdout.Write(inventoryJSON)
+		return
+	}
+	if args.host {
+		// empty hash
+		fmt.Fprint(os.Stdout, "{}")
+		return
+	}
+	if args.version {
+		fmt.Printf("%s v%s\n", appName, appVersion)
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, usage, appName)
+	flag.PrintDefaults()
+}
+
+type configuration struct {
 	APIKey       string `gcfg:"api-key"`
 	DisplayGroup string `gcfg:"display-group"`
 }
 
-func getConfig() (*Configuration, error) {
+// returns true if displayGroup should be included in result set
+func (c *configuration) filterDisplayGroup(displayGroup string) bool {
+	if c.DisplayGroup == "" {
+		return true
+	}
+	return c.DisplayGroup == displayGroup
+}
+
+func getConfig() (*configuration, error) {
 	// first check directory where the executable is located
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 	if err != nil {
 		return nil, err
 	}
-	path := dir + "/" + ConfigPath
+	path := dir + "/" + configName
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		// fallback to PWD. This is usefull when using `go run`
-		path = ConfigPath
+		// fallback to working directory. This is usefull when using `go run`
+		path = configName
 	}
 
 	var config struct {
-		Linode Configuration
+		Linode configuration
 	}
 
 	err = gcfg.ReadFileInto(&config, path)
@@ -41,67 +101,40 @@ func getConfig() (*Configuration, error) {
 	return &config.Linode, nil
 }
 
-func getLinodes(config *Configuration) ([]*api.Linode, error) {
-	nodeMap, err := api.FetchLinodesWithIps(config.APIKey)
-	if err != nil {
-		return nil, err
-	}
-
-	var linodes []*api.Linode
-	// function to add nodes to the slice
-	addNodes := func(nodes []*api.Linode) {
-		for _, node := range nodes {
-			// Status 1 == running
-			if node.Status == 1 {
-				linodes = append(linodes, node)
-			}
-		}
-	}
-
-	if config.DisplayGroup != "" {
-		nodes, ok := nodeMap[config.DisplayGroup]
-		if !ok {
-			return nil, fmt.Errorf("display group '%s' not found", config.DisplayGroup)
-		}
-		addNodes(nodes)
-	} else {
-		for _, nodes := range nodeMap {
-			addNodes(nodes)
-		}
-	}
-
-	return linodes, nil
+type linodeWithIPs struct {
+	node linode.Linode
+	ips  []linode.LinodeIP
 }
 
-func main() {
-	config, err := getConfig()
+func linodes() map[int]*linodeWithIPs {
+	nodes, err := linodeClient.LinodeList()
 	if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	}
 
-	// --list and --host are called from Ansible
-	// see: http://docs.ansible.com/developing_inventory.html
-	if len(os.Args) > 1 && os.Args[1][0:2] == "--" {
-		switch os.Args[1] {
-		case "--list":
-			linodes, err := getLinodes(config)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			inventory := makeInventory(linodes)
-			inventoryJSON, err := inventory.toJSON()
-			if err != nil {
-				log.Fatal(err)
-			}
-			os.Stdout.Write(inventoryJSON)
-		case "--host":
-			// empty hash
-			fmt.Fprint(os.Stdout, "{}")
-		default:
-			fmt.Fprintf(os.Stderr, "Unrecognized flag: %v\nUsage: linode-inventory --list or --host\n", os.Args[1])
+	m := make(map[int]*linodeWithIPs, len(nodes))
+	ids := make([]int, 0, len(nodes))
+	for _, n := range nodes {
+		if !config.filterDisplayGroup(n.DisplayGroup) {
+			continue
 		}
-	} else {
-		fmt.Fprint(os.Stderr, "Usage: linode-inventory --list or --host\n")
+		v := &linodeWithIPs{node: n}
+		m[n.ID] = v
+		ids = append(ids, n.ID)
 	}
+
+	ipMap, err := linodeClient.LinodeIPList(ids)
+	if err != nil {
+		fatal(err)
+	}
+	for nodeID, ips := range ipMap {
+		m[nodeID].ips = ips
+	}
+
+	return m
+}
+
+func fatal(v interface{}) {
+	fmt.Fprintln(os.Stderr, v)
+	os.Exit(1)
 }

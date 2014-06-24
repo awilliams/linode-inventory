@@ -1,7 +1,8 @@
 BIN=linode-inventory
-VERSION=0.0.1
+VERSION=0.1.0
 README=README.md
 LICENSE=LICENSE
+EXAMPLE_INI=linode-inventory.ini.example
 RELEASE_DIR=release
 
 # Go parameters
@@ -26,6 +27,7 @@ package:
 	mkdir $(RELEASE_DIR)/$(BIN)
 	cp $(README) $(RELEASE_DIR)/$(BIN)
 	cp $(LICENSE) $(RELEASE_DIR)/$(BIN)
+	cp $(EXAMPLE_INI) $(RELEASE_DIR)/$(BIN)/linode-inventory.example.ini
 
 	cp -f bin/linux-amd64/$(BIN) $(RELEASE_DIR)/$(BIN)/$(BIN)
 	tar -czf $(RELEASE_DIR)/$(BIN)-linux-amd64-v$(VERSION).tar.gz -C $(RELEASE_DIR) $(BIN)
