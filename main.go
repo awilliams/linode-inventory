@@ -8,7 +8,7 @@ import (
 
 	"github.com/awilliams/linode"
 
-	"code.google.com/p/gcfg"
+	"gopkg.in/gcfg.v1"
 )
 
 const configName = "linode-inventory.ini"
